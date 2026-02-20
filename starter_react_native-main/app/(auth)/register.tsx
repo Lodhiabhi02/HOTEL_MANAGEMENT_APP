@@ -11,38 +11,43 @@ import {
   Alert,
 } from "react-native";
 import React, { useState, useEffect } from "react";
+import { router } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/Store/hooks";
 import { registerUser, clearError } from "@/Store/authSlice";
 import type { Role } from "@/Store/authSlice";
 
 const ROLES: Role[] = ["USER", "ADMIN", "MANAGER"];
 
-interface Props {
-  onRegisterSuccess?: () => void;
-  onGoToLogin?: () => void;
-}
+const EMPTY_FORM = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  phoneNumber: "",
+  role: "" as Role | "",
+};
 
-export default function RegisterScreen({
-  onRegisterSuccess,
-  onGoToLogin,
-}: Props) {
+export default function RegisterScreen() {
   const dispatch = useAppDispatch();
-  const { loading, error, user } = useAppSelector((state) => state.auth);
+  const { loading, error, user, token } = useAppSelector((state) => state.auth);
 
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    phoneNumber: "",
-    role: "" as Role | "",
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
   const [showPassword, setShowPassword] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
+  // Redirect after successful register
   useEffect(() => {
-    if (user) onRegisterSuccess?.();
-  }, [user]);
+    if (user && token) {
+      setForm({ ...EMPTY_FORM });
+      setShowPassword(false);
+      setShowRoleDropdown(false);
+      if (user.role === "ADMIN" || user.role === "MANAGER") {
+        router.replace("/(admin)/HomeAdmin");
+      } else {
+        router.replace("/(tabs)/Home");
+      }
+    }
+  }, [user, token]);
 
   useEffect(() => {
     if (error) {
@@ -70,17 +75,14 @@ export default function RegisterScreen({
       Alert.alert("Error", "Saare fields fill karna zaroori hain");
       return;
     }
-
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       Alert.alert("Error", "Valid email daalo");
       return;
     }
-
     if (password.length < 6) {
       Alert.alert("Error", "Password kam se kam 6 characters ka hona chahiye");
       return;
     }
-
     if (!/^[0-9]{10}$/.test(phoneNumber)) {
       Alert.alert("Error", "Phone number 10 digits ka hona chahiye");
       return;
@@ -124,7 +126,6 @@ export default function RegisterScreen({
       style={{ flex: 1, backgroundColor: "#0f172a" }}
     >
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
         keyboardShouldPersistTaps="handled"
@@ -211,7 +212,7 @@ export default function RegisterScreen({
               />
             </View>
 
-            {/* Phone Number */}
+            {/* Phone */}
             <View style={{ marginBottom: 16 }}>
               <Text style={labelStyle}>Phone Number</Text>
               <TextInput
@@ -352,7 +353,7 @@ export default function RegisterScreen({
 
           {/* Footer */}
           <View style={{ marginTop: 28, alignItems: "center" }}>
-            <TouchableOpacity onPress={onGoToLogin}>
+            <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
               <Text style={{ color: "#64748b", fontSize: 14 }}>
                 Pehle se account hai?{" "}
                 <Text style={{ color: "#34d399", fontWeight: "700" }}>

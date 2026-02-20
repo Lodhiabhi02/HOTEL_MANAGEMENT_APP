@@ -1,16 +1,15 @@
-import { Text, View } from "react-native";
+import { Redirect } from "expo-router";
+import { useAppSelector } from "@/Store/hooks";
 
 export default function Index() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text className="text-red-500">welcome to movie wjn shbfjhb app.</Text>
-      <Text className="text-blue-500">welcome to movie app.</Text>
-    </View>
-  );
+  const { user, token } = useAppSelector((state) => state.auth);
+
+  if (user && token) {
+    if (user.role === "ADMIN" || user.role === "MANAGER") {
+      return <Redirect href="/(admin)/HomeAdmin" />;
+    }
+    return <Redirect href="/(tabs)/Home" />;
+  }
+
+  return <Redirect href="/(auth)/login" />;
 }

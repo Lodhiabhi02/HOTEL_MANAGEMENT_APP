@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from "@/Store/hooks";
 import { logoutUser } from "@/Store/authSlice";
 import { router } from "expo-router";
 
-export default function Home() {
+export default function HomeAdmin() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
 
@@ -29,17 +29,17 @@ export default function Home() {
           marginBottom: 8,
         }}
       >
-        Welcome, {user?.firstName || "User"}! 👋
+        Welcome, {user?.firstName || "Admin"}! 🛡️
       </Text>
       <Text style={{ color: "#94a3b8", fontSize: 15, marginBottom: 8 }}>
         {user?.email}
       </Text>
       <Text
         style={{
-          color: "#6366f1",
+          color: "#10b981",
           fontSize: 13,
           fontWeight: "700",
-          backgroundColor: "#1e1b4b",
+          backgroundColor: "#064e3b",
           paddingHorizontal: 12,
           paddingVertical: 4,
           borderRadius: 8,

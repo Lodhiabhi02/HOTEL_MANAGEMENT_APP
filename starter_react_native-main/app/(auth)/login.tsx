@@ -6,30 +6,32 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import React, { useEffect, useState } from "react";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/Store/hooks";
 import { loginUser, clearError } from "@/Store/authSlice";
 
-interface Props {
-  onLoginSuccess?: () => void;
-  onGoToRegister?: () => void;
-}
-
-const Login = ({ onLoginSuccess, onGoToRegister }: Props) => {
-  const { loading, error, user } = useAppSelector((state) => state.auth);
-
+const Login = () => {
+  const { loading, error, user, token } = useAppSelector((state) => state.auth);
   const [email, setEmail] = useState("");
-
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const dispatch = useAppDispatch();
 
+  // Redirect after successful login
   useEffect(() => {
-    if (user) onLoginSuccess?.();
-  }, [user]);
+    if (user && token) {
+      setEmail("");
+      setPassword("");
+      if (user.role === "ADMIN" || user.role === "MANAGER") {
+        router.replace("/(admin)/HomeAdmin");
+      } else {
+        router.replace("/(tabs)/Home");
+      }
+    }
+  }, [user, token]);
 
   useEffect(() => {
     if (error) {
@@ -41,7 +43,7 @@ const Login = ({ onLoginSuccess, onGoToRegister }: Props) => {
 
   const handleLogin = () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Email or passward is required");
+      Alert.alert("Error", "Email and password are required");
       return;
     }
     dispatch(loginUser({ email: email.trim(), password }));
@@ -68,18 +70,19 @@ const Login = ({ onLoginSuccess, onGoToRegister }: Props) => {
 
         {/* Form Card */}
         <View className="bg-slate-900 rounded-3xl p-6 border border-slate-800">
-          {/* Username */}
+          {/* Email */}
           <View className="mb-4">
             <Text className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-2">
-              Username
+              Email
             </Text>
             <TextInput
               className="bg-slate-800 text-white rounded-xl px-4 py-3.5 text-base border border-slate-700"
-              placeholder="Enter your username"
+              placeholder="Enter your email"
               placeholderTextColor="#64748b"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              keyboardType="email-address"
             />
           </View>
 
@@ -111,11 +114,17 @@ const Login = ({ onLoginSuccess, onGoToRegister }: Props) => {
           {/* Login Button */}
           <TouchableOpacity
             onPress={handleLogin}
-            className="bg-indigo-600 rounded-xl py-4 items-center active:bg-indigo-700"
+            disabled={loading}
+            className="bg-indigo-600 rounded-xl py-4 items-center"
+            style={{ opacity: loading ? 0.7 : 1 }}
           >
-            <Text className="text-white font-bold text-base tracking-wide">
-              Sign In
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="text-white font-bold text-base tracking-wide">
+                Sign In
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Forgot Password */}
@@ -129,12 +138,12 @@ const Login = ({ onLoginSuccess, onGoToRegister }: Props) => {
 
         {/* Footer */}
         <View className="mt-8 items-center">
-          <Text className="text-slate-400 text-sm">
-            Dont have an account?{" "}
-            <Link href="/register" className="text-indigo-400 font-semibold">
-              Register
-            </Link>
-          </Text>
+          <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
+            <Text className="text-slate-400 text-sm">
+              Don't have an account?{" "}
+              <Text className="text-indigo-400 font-semibold">Register</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
