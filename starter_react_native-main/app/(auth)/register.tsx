@@ -13,8 +13,8 @@ import {
 import React, { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/Store/hooks";
-import { registerUser, clearError } from "@/Store/authSlice";
-import type { Role } from "@/Store/authSlice";
+import { registerUser, clearError } from "@/Store/auth/authSlice";
+import type { Role } from "@/Store/auth/authSlice";
 
 const ROLES: Role[] = ["USER", "ADMIN", "MANAGER"];
 

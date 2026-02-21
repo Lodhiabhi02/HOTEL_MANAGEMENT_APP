@@ -7,6 +7,7 @@ import com.example.BACKEND_HMS.jwtfilter.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -30,10 +31,26 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+
+                        // Public or Auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/subcategories/**","/api/products/**","/api/categories/**").hasRole("ADMIN")
+
+                        // USER + ADMIN dono dekh sakte hain (GET only)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/subcategories/**",
+                                "/api/products/**",
+                                "/api/categories/**"
+                        ).hasAnyRole("ADMIN", "USER")
+
+                        // Sirf ADMIN create/update/delete kare
+                        .requestMatchers(
+                                "/api/subcategories/**",
+                                "/api/products/**",
+                                "/api/categories/**"
+                        ).hasRole("ADMIN")
+
                         .requestMatchers("/api/user/**").hasRole("USER")
-//                        .requestMatchers("/api/patient/**").hasAnyRole("ADMIN","DOCTOR","PATIENT")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

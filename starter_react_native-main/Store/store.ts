@@ -1,9 +1,15 @@
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "./authSlice";
+import authReducer from "./auth/authSlice";
+import categoryReducer from "./Product/categorySlice"; // ✅ categoryApi se nahi
+import subCategoryReducer from "./Product/Subcategoryslice";
+import productReducer from "./Product/productSlice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    category: categoryReducer,
+    subCategory: subCategoryReducer,
+    product: productReducer,
   },
 });
 

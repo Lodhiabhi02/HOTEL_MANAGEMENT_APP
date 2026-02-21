@@ -11,7 +11,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/Store/hooks";
-import { loginUser, clearError } from "@/Store/authSlice";
+import { loginUser, clearError } from "@/Store/auth/authSlice";
 
 const Login = () => {
   const { loading, error, user, token } = useAppSelector((state) => state.auth);
@@ -140,7 +140,7 @@ const Login = () => {
         <View className="mt-8 items-center">
           <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
             <Text className="text-slate-400 text-sm">
-              Don't have an account?{" "}
+              Dont have an account?{" "}
               <Text className="text-indigo-400 font-semibold">Register</Text>
             </Text>
           </TouchableOpacity>
