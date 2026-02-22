@@ -1,293 +1,305 @@
+import React, { useEffect } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
+  StyleSheet,
   ScrollView,
+  TouchableOpacity,
   Image,
-  StatusBar,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import MapView, { Marker, Circle } from "react-native-maps";
-
-const hotels = [
-  {
-    id: "1",
-    name: "GoldenValley",
-    address: "G8502 Preston Rd. Inglewood",
-    price: 600,
-    rating: 5.0,
-    reviews: 107,
-    distance: "3.5 km/50min",
-    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400",
-    lat: 40.7138,
-    lng: -74.008,
-  },
-  {
-    id: "2",
-    name: "PineView",
-    address: "123 Broadway, New York",
-    price: 450,
-    rating: 4.8,
-    reviews: 89,
-    distance: "2.1 km/30min",
-    image: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400",
-    lat: 40.7158,
-    lng: -74.005,
-  },
-];
+import { useAppDispatch, useAppSelector } from "@/Store/hooks";
+import {
+  fetchCart,
+  updateCartItem,
+  removeCartItem,
+} from "@/Store/cart/cartSlice";
+import { router } from "expo-router";
 
 export default function Explore() {
-  return (
-    <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
-      <StatusBar barStyle="dark-content" />
+  const dispatch = useAppDispatch();
+  const { cart, loading } = useAppSelector((s) => s.cart);
 
-      {/* Map */}
-      <View style={{ height: "55%", position: "relative" }}>
-        <MapView
-          style={{ flex: 1 }}
-          initialRegion={{
-            latitude: 40.7143,
-            longitude: -74.006,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }}
-        >
-          <Circle
-            center={{ latitude: 40.7143, longitude: -74.006 }}
-            radius={800}
-            fillColor="rgba(37,99,235,0.12)"
-            strokeColor="rgba(37,99,235,0.4)"
-            strokeWidth={2}
-          />
-          {hotels.map((h) => (
-            <Marker
-              key={h.id}
-              coordinate={{ latitude: h.lat, longitude: h.lng }}
-            >
-              <View
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: 7,
-                  backgroundColor: "#2563eb",
-                  borderWidth: 2,
-                  borderColor: "#fff",
-                }}
-              />
-            </Marker>
-          ))}
-          <Marker coordinate={{ latitude: 40.7143, longitude: -74.006 }}>
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: "#2563eb",
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 3,
-                borderColor: "#fff",
-              }}
-            >
-              <Ionicons name="navigate" size={16} color="#fff" />
-            </View>
-          </Marker>
-        </MapView>
+  useEffect(() => {
+    dispatch(fetchCart());
+  }, []);
 
-        {/* Search bar overlay */}
-        <View
-          style={{
-            position: "absolute",
-            top: 56,
-            left: 16,
-            right: 16,
-            flexDirection: "row",
-            gap: 10,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "#fff",
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              height: 48,
-              shadowColor: "#000",
-              shadowOpacity: 0.1,
-              shadowRadius: 10,
-              elevation: 4,
-            }}
-          >
-            <Ionicons name="search" size={18} color="#94a3b8" />
-            <TextInput
-              placeholder="Search Hotels"
-              placeholderTextColor="#94a3b8"
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 14,
-                color: "#1e293b",
-              }}
-            />
-          </View>
-          <TouchableOpacity
-            style={{
-              width: 48,
-              height: 48,
-              backgroundColor: "#2563eb",
-              borderRadius: 14,
-              alignItems: "center",
-              justifyContent: "center",
-              shadowColor: "#2563eb",
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 4,
-            }}
-          >
-            <Ionicons name="options" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
+  const handleUpdate = async (cartItemId: number, quantity: number) => {
+    const result = await dispatch(updateCartItem({ cartItemId, quantity }));
+    if (updateCartItem.rejected.match(result)) {
+      Alert.alert("Error", result.payload as string);
+    }
+  };
 
-        {/* Location button */}
+  const handleRemove = (cartItemId: number, name: string) => {
+    Alert.alert("Remove Item", `"${name}" hatana chahte ho?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => dispatch(removeCartItem(cartItemId)),
+      },
+    ]);
+  };
+
+  if (loading && !cart) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator color="#10b981" size="large" />
+      </View>
+    );
+  }
+
+  if (!cart || cart.items.length === 0) {
+    return (
+      <View style={s.center}>
+        <Ionicons name="cart-outline" size={70} color="#334155" />
+        <Text style={s.emptyTitle}>Cart is Empty</Text>
+        <Text style={s.emptySubtitle}>Add some products to get started</Text>
         <TouchableOpacity
-          style={{
-            position: "absolute",
-            bottom: 16,
-            right: 16,
-            width: 44,
-            height: 44,
-            backgroundColor: "#fff",
-            borderRadius: 22,
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: "#000",
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 3,
-          }}
+          style={s.shopBtn}
+          onPress={() => router.push("/Home")}
         >
-          <Ionicons name="locate" size={20} color="#2563eb" />
+          <Text style={s.shopBtnText}>Shop Now</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
 
-      {/* Hotel cards */}
+  return (
+    <View style={s.container}>
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.title}>🛒 My Cart</Text>
+        <Text style={s.itemCount}>{cart.totalItems} items</Text>
+      </View>
+
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16 }}
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
       >
-        {hotels.map((hotel) => (
-          <View
-            key={hotel.id}
-            style={{
-              width: 280,
-              marginRight: 14,
-              backgroundColor: "#fff",
-              borderRadius: 20,
-              overflow: "hidden",
-              shadowColor: "#000",
-              shadowOpacity: 0.08,
-              shadowRadius: 12,
-              elevation: 3,
-            }}
-          >
-            <Image
-              source={{ uri: hotel.image }}
-              style={{ width: "100%", height: 150 }}
-              resizeMode="cover"
-            />
-            <TouchableOpacity
-              style={{
-                position: "absolute",
-                top: 12,
-                right: 12,
-                backgroundColor: "#fff",
-                borderRadius: 20,
-                padding: 6,
-              }}
-            >
-              <Ionicons name="heart-outline" size={16} color="#94a3b8" />
-            </TouchableOpacity>
-            <View style={{ padding: 14 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{ fontSize: 16, fontWeight: "700", color: "#1e293b" }}
-                >
-                  {hotel.name}
-                </Text>
-                <Text
-                  style={{ fontSize: 15, fontWeight: "700", color: "#2563eb" }}
-                >
-                  ${hotel.price}
-                  <Text
-                    style={{
-                      color: "#94a3b8",
-                      fontWeight: "400",
-                      fontSize: 12,
-                    }}
-                  >
-                    /night
-                  </Text>
-                </Text>
+        {/* Cart Items */}
+        {cart.items.map((item) => (
+          <View key={item.cartItemId} style={s.cartItem}>
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={s.itemImage} />
+            ) : (
+              <View style={[s.itemImage, s.imagePlaceholder]}>
+                <Ionicons name="cube-outline" size={24} color="#475569" />
               </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: 4,
-                }}
+            )}
+
+            <View style={s.itemInfo}>
+              <Text style={s.itemName} numberOfLines={2}>
+                {item.productName}
+              </Text>
+              <Text style={s.itemUnit}>per {item.productUnit}</Text>
+              <Text style={s.itemPrice}>₹{item.priceAtTime}</Text>
+            </View>
+
+            <View style={s.qtyControls}>
+              <TouchableOpacity
+                style={s.qtyBtn}
+                onPress={() =>
+                  item.quantity > 1
+                    ? handleUpdate(item.cartItemId, item.quantity - 1)
+                    : handleRemove(item.cartItemId, item.productName)
+                }
               >
-                <Ionicons name="location" size={12} color="#94a3b8" />
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: "#94a3b8",
-                    marginLeft: 2,
-                    flex: 1,
-                  }}
-                >
-                  {hotel.address}
-                </Text>
-              </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: 6,
-                }}
+                <Ionicons
+                  name={item.quantity === 1 ? "trash-outline" : "remove"}
+                  size={16}
+                  color={item.quantity === 1 ? "#ef4444" : "#f1f5f9"}
+                />
+              </TouchableOpacity>
+
+              <Text style={s.qtyText}>{item.quantity}</Text>
+
+              <TouchableOpacity
+                style={s.qtyBtn}
+                onPress={() => handleUpdate(item.cartItemId, item.quantity + 1)}
               >
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Ionicons key={s} name="star" size={13} color="#f59e0b" />
-                ))}
-                <Text style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>
-                  {hotel.rating} ({hotel.reviews} Reviews)
-                </Text>
-              </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: 6,
-                }}
-              >
-                <Ionicons name="walk" size={14} color="#64748b" />
-                <Text style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>
-                  {hotel.distance}
-                </Text>
-              </View>
+                <Ionicons name="add" size={16} color="#f1f5f9" />
+              </TouchableOpacity>
             </View>
           </View>
         ))}
+
+        {/* Price Summary */}
+        <View style={s.summaryCard}>
+          <Text style={s.summaryTitle}>Price Summary</Text>
+          <View style={s.summaryRow}>
+            <Text style={s.summaryLabel}>Subtotal</Text>
+            <Text style={s.summaryValue}>₹{cart.totalAmount.toFixed(2)}</Text>
+          </View>
+          <View style={s.summaryRow}>
+            <Text style={s.summaryLabel}>Delivery</Text>
+            <Text style={[s.summaryValue, { color: "#10b981" }]}>
+              {cart.totalAmount >= 500 ? "FREE" : "₹40.00"}
+            </Text>
+          </View>
+          <View style={s.divider} />
+          <View style={s.summaryRow}>
+            <Text style={s.totalLabel}>Total</Text>
+            <Text style={s.totalValue}>
+              ₹
+              {(cart.totalAmount + (cart.totalAmount >= 500 ? 0 : 40)).toFixed(
+                2,
+              )}
+            </Text>
+          </View>
+          {cart.totalAmount < 500 && (
+            <Text style={s.freeDeliveryHint}>
+              ₹{(500 - cart.totalAmount).toFixed(0)} more for FREE delivery!
+            </Text>
+          )}
+        </View>
       </ScrollView>
+
+      {/* Checkout Button */}
+      <View style={s.checkoutBox}>
+        <TouchableOpacity
+          style={s.checkoutBtn}
+          onPress={() => router.push("/checkout" as any)}
+        >
+          <Text style={s.checkoutText}>
+            Proceed to Checkout — ₹
+            {(cart.totalAmount + (cart.totalAmount >= 500 ? 0 : 40)).toFixed(2)}
+          </Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0f172a", paddingTop: 50 },
+  center: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  title: { fontSize: 22, fontWeight: "700", color: "#f1f5f9" },
+  itemCount: { color: "#94a3b8", fontSize: 13 },
+  content: { padding: 16, paddingBottom: 120 },
+  cartItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e293b",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#334155",
+    gap: 12,
+  },
+  itemImage: { width: 60, height: 60, borderRadius: 10 },
+  imagePlaceholder: {
+    backgroundColor: "#0f172a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  itemInfo: { flex: 1 },
+  itemName: {
+    color: "#f1f5f9",
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  itemUnit: { color: "#475569", fontSize: 11, marginBottom: 4 },
+  itemPrice: { color: "#10b981", fontSize: 14, fontWeight: "700" },
+  qtyControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 10,
+    padding: 4,
+    gap: 8,
+  },
+  qtyBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#1e293b",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyText: {
+    color: "#f1f5f9",
+    fontSize: 14,
+    fontWeight: "700",
+    minWidth: 20,
+    textAlign: "center",
+  },
+  summaryCard: {
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  summaryTitle: {
+    color: "#f1f5f9",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  summaryLabel: { color: "#94a3b8", fontSize: 13 },
+  summaryValue: { color: "#f1f5f9", fontSize: 13, fontWeight: "600" },
+  divider: { height: 1, backgroundColor: "#334155", marginVertical: 8 },
+  totalLabel: { color: "#f1f5f9", fontSize: 15, fontWeight: "700" },
+  totalValue: { color: "#10b981", fontSize: 16, fontWeight: "800" },
+  freeDeliveryHint: {
+    color: "#f59e0b",
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  checkoutBox: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: "#0f172a",
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+  },
+  checkoutBtn: {
+    backgroundColor: "#10b981",
+    borderRadius: 14,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  checkoutText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  emptyTitle: { color: "#f1f5f9", fontSize: 20, fontWeight: "700" },
+  emptySubtitle: { color: "#94a3b8", fontSize: 13 },
+  shopBtn: {
+    backgroundColor: "#10b981",
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  shopBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+});

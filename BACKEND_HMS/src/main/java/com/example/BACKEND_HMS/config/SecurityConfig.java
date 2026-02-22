@@ -1,7 +1,5 @@
 package com.example.BACKEND_HMS.config;
 
-
-
 import com.example.BACKEND_HMS.jwtfilter.JwtAuthenticationEntryPoint;
 import com.example.BACKEND_HMS.jwtfilter.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -32,25 +30,51 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
 
-                        // Public or Auth
+                        // ── Public ──────────────────────────────────────
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // USER + ADMIN dono dekh sakte hain (GET only)
+                        // ── Categories / SubCategories / Products ────────
+                        // USER + ADMIN dono GET kar sakte hain
                         .requestMatchers(HttpMethod.GET,
+                                "/api/categories/**",
                                 "/api/subcategories/**",
-                                "/api/products/**",
-                                "/api/categories/**"
+                                "/api/products/**"
                         ).hasAnyRole("ADMIN", "USER")
 
-                        // Sirf ADMIN create/update/delete kare
+                        // Sirf ADMIN create/update/delete kar sakta hai
                         .requestMatchers(
+                                "/api/categories/**",
                                 "/api/subcategories/**",
-                                "/api/products/**",
-                                "/api/categories/**"
+                                "/api/products/**"
                         ).hasRole("ADMIN")
 
-                        .requestMatchers("/api/user/**").hasRole("USER")
+                        // ── Cart ─────────────────────────────────────────
+                        // USER + ADMIN dono cart use kar sakte hain
+                        .requestMatchers("/api/cart/**")
+                        .hasAnyRole("USER", "ADMIN")
 
+                        // ── Orders ───────────────────────────────────────
+                        // Sirf ADMIN ke liye admin endpoints
+                        .requestMatchers("/api/orders/admin/**")
+                        .hasRole("ADMIN")
+
+                        // USER + ADMIN dono orders place/view kar sakte hain
+                        .requestMatchers("/api/orders/**")
+                        .hasAnyRole("USER", "ADMIN")
+
+                        // ── Payments ─────────────────────────────────────
+                        .requestMatchers("/api/payments/**")
+                        .hasAnyRole("USER", "ADMIN")
+
+                        // ── Addresses ────────────────────────────────────
+                        .requestMatchers("/api/addresses/**")
+                        .hasAnyRole("USER", "ADMIN")
+
+                        // ── User Profile ─────────────────────────────────
+                        .requestMatchers("/api/user/**")
+                        .hasAnyRole("USER", "ADMIN")
+
+                        // ── Baaki sab authenticated ───────────────────────
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

@@ -1,263 +1,248 @@
+import React, { useEffect } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
+  StyleSheet,
   ScrollView,
-  Image,
-  StatusBar,
+  TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/Store/hooks";
+import { fetchMyOrders } from "@/Store/order/orderSlice";
 
-const filters = ["All", "Recommended", "Popular", "Nearby"];
-
-const favourites = [
-  {
-    id: "1",
-    name: "GoldenValley",
-    location: "New York, USA",
-    price: 150,
-    rating: 4.9,
-    discount: "10% Off",
-    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400",
+const STATUS_CONFIG: Record<
+  string,
+  { color: string; bg: string; icon: string }
+> = {
+  PENDING: { color: "#f59e0b", bg: "#451a03", icon: "time-outline" },
+  CONFIRMED: {
+    color: "#6366f1",
+    bg: "#1e1b4b",
+    icon: "checkmark-circle-outline",
   },
-  {
-    id: "2",
-    name: "AlohaVista",
-    location: "New York, USA",
-    price: 450,
-    rating: 4.8,
-    discount: "10% Off",
-    image: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=400",
+  PREPARING: { color: "#f97316", bg: "#431407", icon: "restaurant-outline" },
+  OUT_FOR_DELIVERY: {
+    color: "#3b82f6",
+    bg: "#172554",
+    icon: "bicycle-outline",
   },
-  {
-    id: "3",
-    name: "HarborHaven Hideaway",
-    location: "New York, USA",
-    price: 700,
-    rating: 4.8,
-    discount: "10% Off",
-    image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400",
-  },
-  {
-    id: "4",
-    name: "EmeraldEcho Oasis",
-    location: "New York, USA",
-    price: 320,
-    rating: 4.8,
-    discount: "10% Off",
-    image: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400",
-  },
-];
+  DELIVERED: { color: "#10b981", bg: "#064e3b", icon: "bag-check-outline" },
+  CANCELLED: { color: "#ef4444", bg: "#450a0a", icon: "close-circle-outline" },
+};
 
 export default function Favourite() {
-  const [activeFilter, setActiveFilter] = useState("All");
+  const dispatch = useAppDispatch();
+  const { orders, loading } = useAppSelector((s) => s.order);
+
+  useEffect(() => {
+    dispatch(fetchMyOrders());
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (loading && orders.length === 0) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator color="#10b981" size="large" />
+      </View>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <View style={s.center}>
+        <Ionicons name="receipt-outline" size={70} color="#334155" />
+        <Text style={s.emptyTitle}>No Orders Yet</Text>
+        <Text style={s.emptySubtitle}>Your order history will appear here</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header */}
-      <View
-        style={{
-          backgroundColor: "#fff",
-          paddingTop: 56,
-          paddingBottom: 16,
-          paddingHorizontal: 20,
-          shadowColor: "#000",
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              width: 38,
-              height: 38,
-              backgroundColor: "#f1f5f9",
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name="arrow-back" size={20} color="#1e293b" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 17, fontWeight: "700", color: "#1e293b" }}>
-            Favorite
-          </Text>
-          <TouchableOpacity
-            style={{
-              width: 38,
-              height: 38,
-              backgroundColor: "#f1f5f9",
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name="search" size={18} color="#1e293b" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 16 }}
-        >
-          {filters.map((f) => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setActiveFilter(f)}
-              style={{
-                paddingHorizontal: 18,
-                paddingVertical: 8,
-                marginRight: 10,
-                borderRadius: 20,
-                backgroundColor: activeFilter === f ? "#2563eb" : "#f1f5f9",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: activeFilter === f ? "#fff" : "#64748b",
-                }}
-              >
-                {f}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+    <View style={s.container}>
+      <View style={s.header}>
+        <Text style={s.title}>📦 My Orders</Text>
+        <Text style={s.count}>{orders.length} orders</Text>
       </View>
 
-      {/* List */}
       <ScrollView
+        contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20 }}
       >
-        {favourites.map((hotel) => (
-          <View
-            key={hotel.id}
-            style={{
-              flexDirection: "row",
-              backgroundColor: "#fff",
-              borderRadius: 18,
-              marginBottom: 14,
-              overflow: "hidden",
-              shadowColor: "#000",
-              shadowOpacity: 0.06,
-              shadowRadius: 10,
-              elevation: 2,
-            }}
-          >
-            <View style={{ position: "relative" }}>
-              <Image
-                source={{ uri: hotel.image }}
-                style={{ width: 110, height: 100 }}
-                resizeMode="cover"
-              />
-              <TouchableOpacity
-                style={{
-                  position: "absolute",
-                  top: 8,
-                  left: 8,
-                  backgroundColor: "#2563eb",
-                  borderRadius: 20,
-                  padding: 5,
-                }}
-              >
-                <Ionicons name="heart" size={14} color="#fff" />
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1, padding: 12, justifyContent: "center" }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
-              >
+        {orders.map((order) => {
+          const statusCfg =
+            STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+          return (
+            <View key={order.orderId} style={s.orderCard}>
+              {/* Order Header */}
+              <View style={s.orderHeader}>
+                <View>
+                  <Text style={s.orderId}>Order #{order.orderId}</Text>
+                  <Text style={s.orderDate}>{formatDate(order.createdAt)}</Text>
+                </View>
                 <View
-                  style={{
-                    backgroundColor: "#eff6ff",
-                    borderRadius: 6,
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                  }}
+                  style={[s.statusBadge, { backgroundColor: statusCfg.bg }]}
                 >
-                  <Text
-                    style={{
-                      color: "#2563eb",
-                      fontSize: 10,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {hotel.discount}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="star" size={12} color="#f59e0b" />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: "#1e293b",
-                      marginLeft: 2,
-                    }}
-                  >
-                    {hotel.rating}
+                  <Ionicons
+                    name={statusCfg.icon as any}
+                    size={13}
+                    color={statusCfg.color}
+                  />
+                  <Text style={[s.statusText, { color: statusCfg.color }]}>
+                    {order.status.replace("_", " ")}
                   </Text>
                 </View>
               </View>
-              <Text
-                style={{
-                  fontSize: 15,
-                  fontWeight: "700",
-                  color: "#1e293b",
-                  marginTop: 6,
-                }}
-              >
-                {hotel.name}
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: 3,
-                }}
-              >
-                <Ionicons name="location" size={11} color="#94a3b8" />
-                <Text style={{ fontSize: 11, color: "#94a3b8", marginLeft: 2 }}>
-                  {hotel.location}
+
+              {/* Items */}
+              <View style={s.itemsList}>
+                {order.items.slice(0, 3).map((item) => (
+                  <Text
+                    key={item.orderItemId}
+                    style={s.itemText}
+                    numberOfLines={1}
+                  >
+                    • {item.productName} × {item.quantity}
+                  </Text>
+                ))}
+                {order.items.length > 3 && (
+                  <Text style={s.moreItems}>
+                    +{order.items.length - 3} more items
+                  </Text>
+                )}
+              </View>
+
+              {/* Divider */}
+              <View style={s.divider} />
+
+              {/* Footer */}
+              <View style={s.orderFooter}>
+                <View>
+                  <Text style={s.paymentMethod}>
+                    <Ionicons name="card-outline" size={12} color="#475569" />{" "}
+                    {order.paymentMethod?.replace("_", " ")}
+                  </Text>
+                  <View
+                    style={[
+                      s.payStatusBadge,
+                      {
+                        backgroundColor:
+                          order.paymentStatus === "COMPLETED"
+                            ? "#064e3b"
+                            : "#3b1515",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.payStatusText,
+                        {
+                          color:
+                            order.paymentStatus === "COMPLETED"
+                              ? "#10b981"
+                              : "#f59e0b",
+                        },
+                      ]}
+                    >
+                      {order.paymentStatus}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={s.finalAmount}>
+                  ₹{order.finalAmount?.toFixed(2)}
                 </Text>
               </View>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: "#2563eb",
-                  fontWeight: "700",
-                  marginTop: 5,
-                }}
-              >
-                ${hotel.price}
-                <Text
-                  style={{ color: "#94a3b8", fontWeight: "400", fontSize: 11 }}
-                >
-                  /night
+
+              {/* Delivery */}
+              <View style={s.deliveryRow}>
+                <Ionicons name="location-outline" size={13} color="#475569" />
+                <Text style={s.deliveryAddress} numberOfLines={1}>
+                  {order.deliveryAddress}
                 </Text>
-              </Text>
+              </View>
             </View>
-          </View>
-        ))}
-        <View style={{ height: 10 }} />
+          );
+        })}
       </ScrollView>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0f172a", paddingTop: 50 },
+  center: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  title: { fontSize: 22, fontWeight: "700", color: "#f1f5f9" },
+  count: { color: "#94a3b8", fontSize: 13 },
+  content: { padding: 16, paddingBottom: 100 },
+  orderCard: {
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  orderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  orderId: { color: "#f1f5f9", fontSize: 15, fontWeight: "700" },
+  orderDate: { color: "#475569", fontSize: 11, marginTop: 2 },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  statusText: { fontSize: 11, fontWeight: "700" },
+  itemsList: { marginBottom: 12 },
+  itemText: { color: "#94a3b8", fontSize: 12, marginBottom: 3 },
+  moreItems: { color: "#475569", fontSize: 11, marginTop: 2 },
+  divider: { height: 1, backgroundColor: "#334155", marginBottom: 12 },
+  orderFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
+  paymentMethod: { color: "#475569", fontSize: 11, marginBottom: 4 },
+  payStatusBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  payStatusText: { fontSize: 10, fontWeight: "700" },
+  finalAmount: { color: "#10b981", fontSize: 18, fontWeight: "800" },
+  deliveryRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  deliveryAddress: { color: "#475569", fontSize: 11, flex: 1 },
+  emptyTitle: { color: "#f1f5f9", fontSize: 20, fontWeight: "700" },
+  emptySubtitle: { color: "#94a3b8", fontSize: 13 },
+});
