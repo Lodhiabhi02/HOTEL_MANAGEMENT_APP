@@ -14,7 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppDispatch, useAppSelector } from "@/Store/hooks";
 import { fetchProducts } from "@/Store/Product/productSlice";
 import { fetchCategories } from "@/Store/Product/categorySlice";
-import { addToCart, fetchCart } from "@/Store/cart/cartSlice";
+import { addToCart, updateCartItem, fetchCart } from "@/Store/cart/cartSlice";
+import { router } from "expo-router";
 
 export default function Home() {
   const dispatch = useAppDispatch();
@@ -33,30 +34,64 @@ export default function Home() {
     dispatch(fetchCart());
   }, []);
 
-  useEffect(() => {
-    if (products.length > 0) {
-      console.log("🔍 FIRST PRODUCT STRUCTURE:", products[0]);
-      console.log("🔍 All keys:", Object.keys(products[0]));
-    }
-  }, [products]);
-
   const filteredProducts = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = selectedCat ? p.categoryId === selectedCat : true;
     return matchSearch && matchCat && p.isAvailable;
   });
 
+  // Cart mein product ka item dhundho
+  const getCartItem = (productId: number) => {
+    return cart?.items.find((i) => i.productId === productId) || null;
+  };
+
   const handleAddToCart = async (productId: number) => {
     setAddingId(productId);
     const result = await dispatch(addToCart({ productId, quantity: 1 }));
     setAddingId(null);
     if (addToCart.rejected.match(result)) {
-      Alert.alert("Error", result.payload as string);
+      Alert.alert("Error ❌", result.payload as string);
     }
   };
 
-  const getCartQty = (productId: number) => {
-    return cart?.items.find((i) => i.productId === productId)?.quantity || 0;
+  const handleIncrease = async (productId: number) => {
+    const item = getCartItem(productId);
+    if (!item) return handleAddToCart(productId);
+    setAddingId(productId);
+    await dispatch(
+      updateCartItem({
+        cartItemId: item.cartItemId,
+        quantity: item.quantity + 1,
+      }),
+    );
+    setAddingId(null);
+  };
+
+  const handleDecrease = async (productId: number) => {
+    const item = getCartItem(productId);
+    if (!item) return;
+    setAddingId(productId);
+    await dispatch(
+      updateCartItem({
+        cartItemId: item.cartItemId,
+        quantity: item.quantity - 1,
+      }),
+    );
+    setAddingId(null);
+  };
+
+  const handleBuyNow = async (productId: number) => {
+    const item = getCartItem(productId);
+    if (!item) {
+      // Pehle cart mein add karo phir checkout pe jao
+      setAddingId(productId);
+      const result = await dispatch(addToCart({ productId, quantity: 1 }));
+      setAddingId(null);
+      if (addToCart.rejected.match(result)) {
+        return Alert.alert("Error ❌", result.payload as string);
+      }
+    }
+    router.push("/checkout" as any);
   };
 
   return (
@@ -67,14 +102,17 @@ export default function Home() {
           <Text style={s.greeting}>Hello, {user?.firstName} 👋</Text>
           <Text style={s.subtitle}>What would you like today?</Text>
         </View>
-        <View style={s.cartBadgeBox}>
+        <TouchableOpacity
+          style={s.cartBadgeBox}
+          onPress={() => router.push("/(tabs)/Explore" as any)}
+        >
           <Ionicons name="cart-outline" size={28} color="#10b981" />
           {(cart?.totalItems || 0) > 0 && (
             <View style={s.badge}>
               <Text style={s.badgeText}>{cart?.totalItems}</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Search */}
@@ -154,10 +192,13 @@ export default function Home() {
           ) : (
             <View style={s.productsRow}>
               {filteredProducts.map((product) => {
-                const qty = getCartQty(product.productId);
+                const cartItem = getCartItem(product.productId);
+                const qty = cartItem?.quantity || 0;
                 const isAdding = addingId === product.productId;
+
                 return (
                   <View key={product.productId} style={s.productCard}>
+                    {/* Image */}
                     {product.imageUrl ? (
                       <Image
                         source={{ uri: product.imageUrl }}
@@ -173,7 +214,7 @@ export default function Home() {
                       </View>
                     )}
 
-                    {/* Badge */}
+                    {/* Cart qty badge */}
                     {qty > 0 && (
                       <View style={s.qtyBadge}>
                         <Text style={s.qtyBadgeText}>{qty}</Text>
@@ -188,20 +229,58 @@ export default function Home() {
                       {product.brand ? (
                         <Text style={s.productBrand}>{product.brand}</Text>
                       ) : null}
+
+                      {/* Price + Add/Qty Controls */}
                       <View style={s.priceRow}>
                         <Text style={s.price}>₹{product.price}</Text>
-                        <TouchableOpacity
-                          style={[s.addBtn, isAdding && { opacity: 0.6 }]}
-                          onPress={() => handleAddToCart(product.productId)}
-                          disabled={isAdding}
-                        >
-                          {isAdding ? (
-                            <ActivityIndicator size="small" color="#fff" />
-                          ) : (
+
+                        {isAdding ? (
+                          <ActivityIndicator size="small" color="#10b981" />
+                        ) : qty === 0 ? (
+                          // Add to Cart button
+                          <TouchableOpacity
+                            style={s.addBtn}
+                            onPress={() => handleAddToCart(product.productId)}
+                          >
                             <Ionicons name="add" size={20} color="#fff" />
-                          )}
-                        </TouchableOpacity>
+                          </TouchableOpacity>
+                        ) : (
+                          // Quantity controls
+                          <View style={s.qtyControls}>
+                            <TouchableOpacity
+                              style={s.qtyBtn}
+                              onPress={() => handleDecrease(product.productId)}
+                            >
+                              <Ionicons
+                                name="remove"
+                                size={14}
+                                color="#f1f5f9"
+                              />
+                            </TouchableOpacity>
+                            <Text style={s.qtyText}>{qty}</Text>
+                            <TouchableOpacity
+                              style={s.qtyBtn}
+                              onPress={() => handleIncrease(product.productId)}
+                            >
+                              <Ionicons name="add" size={14} color="#f1f5f9" />
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
+
+                      {/* Buy Now Button — sirf tab dikhao jab qty > 0 ya directly */}
+                      <TouchableOpacity
+                        style={s.buyNowBtn}
+                        onPress={() => handleBuyNow(product.productId)}
+                        disabled={isAdding}
+                      >
+                        <Ionicons
+                          name="flash-outline"
+                          size={14}
+                          color="#0f172a"
+                        />
+                        <Text style={s.buyNowText}>Buy Now</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 );
@@ -225,11 +304,11 @@ const s = StyleSheet.create({
   },
   greeting: { fontSize: 20, fontWeight: "700", color: "#f1f5f9" },
   subtitle: { fontSize: 13, color: "#94a3b8", marginTop: 2 },
-  cartBadgeBox: { position: "relative" },
+  cartBadgeBox: { position: "relative", padding: 4 },
   badge: {
     position: "absolute",
-    top: -6,
-    right: -6,
+    top: 0,
+    right: 0,
     backgroundColor: "#ef4444",
     borderRadius: 10,
     width: 18,
@@ -275,7 +354,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#334155",
   },
-  productImage: { width: "100%", height: 130 },
+  productImage: { width: "100%", height: 120 },
   imagePlaceholder: {
     backgroundColor: "#0f172a",
     alignItems: "center",
@@ -305,16 +384,50 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 4,
+    marginBottom: 8,
   },
-  price: { color: "#10b981", fontSize: 15, fontWeight: "700" },
+  price: { color: "#10b981", fontSize: 14, fontWeight: "700" },
   addBtn: {
     backgroundColor: "#10b981",
     borderRadius: 8,
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
   },
+  qtyControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    padding: 2,
+    gap: 6,
+  },
+  qtyBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyText: {
+    color: "#f1f5f9",
+    fontSize: 13,
+    fontWeight: "700",
+    minWidth: 16,
+    textAlign: "center",
+  },
+  buyNowBtn: {
+    backgroundColor: "#f59e0b",
+    borderRadius: 8,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  buyNowText: { color: "#0f172a", fontWeight: "700", fontSize: 12 },
   emptyBox: { alignItems: "center", marginTop: 80, gap: 12 },
   emptyText: { color: "#475569", fontSize: 14 },
 });

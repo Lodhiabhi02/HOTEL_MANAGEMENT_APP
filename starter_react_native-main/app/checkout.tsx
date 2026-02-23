@@ -1,3 +1,4 @@
+// app/checkout.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -6,104 +7,89 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/Store/hooks";
-import { fetchAddresses, addAddress } from "@/Store/address/addressSlice";
+import { fetchAddresses } from "@/Store/address/addressSlice";
 import { placeOrder } from "@/Store/order/orderSlice";
 import { fetchCart } from "@/Store/cart/cartSlice";
-import { router } from "expo-router";
-
-const PAYMENT_METHODS = [
-  { key: "CASH_ON_DELIVERY", label: "Cash on Delivery", icon: "cash-outline" },
-  { key: "UPI", label: "UPI", icon: "phone-portrait-outline" },
-  { key: "CARD", label: "Card", icon: "card-outline" },
-];
 
 export default function Checkout() {
   const dispatch = useAppDispatch();
   const { cart } = useAppSelector((s) => s.cart);
-  const { list: addresses, loading: addrLoading } = useAppSelector(
+  const { list: addresses, loading: addressLoading } = useAppSelector(
     (s) => s.address,
   );
   const { loading: orderLoading } = useAppSelector((s) => s.order);
 
-  const [selectedAddress, setSelectedAddress] = useState<number | null>(null);
-  const [manualAddress, setManualAddress] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null,
+  );
+  const [customAddress, setCustomAddress] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("CASH_ON_DELIVERY");
-  const [upiId, setUpiId] = useState("");
-  const [showAddAddress, setShowAddAddress] = useState(false);
-
-  // New address form
-  const [newAddr, setNewAddr] = useState({
-    fullName: "",
-    phoneNumber: "",
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    pincode: "",
-    isDefault: false,
-  });
+  const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "COD">("COD");
+  const [useCustomAddress, setUseCustomAddress] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAddresses());
     dispatch(fetchCart());
   }, []);
 
+  // Auto-select default address
   useEffect(() => {
-    if (addresses.length > 0 && selectedAddress === null) {
-      const def = addresses.find((a) => a.isDefault);
-      setSelectedAddress(def?.addressId || addresses[0].addressId);
+    if (addresses.length > 0 && !selectedAddressId) {
+      const defaultAddr = addresses.find((a) => a.isDefault);
+      if (defaultAddr) {
+        setSelectedAddressId(defaultAddr.addressId);
+      } else {
+        setSelectedAddressId(addresses[0].addressId);
+      }
     }
   }, [addresses]);
 
-  const handleSaveAddress = async () => {
-    if (
-      !newAddr.fullName ||
-      !newAddr.addressLine1 ||
-      !newAddr.city ||
-      !newAddr.pincode
-    )
-      return Alert.alert("Error", "Please fill required address fields");
-    const result = await dispatch(addAddress(newAddr));
-    if (addAddress.fulfilled.match(result)) {
-      setSelectedAddress((result.payload as any).addressId);
-      setShowAddAddress(false);
-      setNewAddr({
-        fullName: "",
-        phoneNumber: "",
-        addressLine1: "",
-        addressLine2: "",
-        city: "",
-        state: "",
-        pincode: "",
-        isDefault: false,
-      });
-    }
-  };
-
   const handlePlaceOrder = async () => {
-    if (!selectedAddress && !manualAddress.trim())
-      return Alert.alert("Error", "Please select or enter a delivery address");
+    // Validation
+    if (!useCustomAddress && !selectedAddressId) {
+      Alert.alert("Address Required", "Please select a delivery address");
+      return;
+    }
 
-    const payload: any = {
+    if (useCustomAddress && !customAddress.trim()) {
+      Alert.alert("Address Required", "Please enter your delivery address");
+      return;
+    }
+
+    if (!cart || cart.items.length === 0) {
+      Alert.alert("Empty Cart", "Your cart is empty");
+      return;
+    }
+
+    // Prepare order data
+    const orderData: any = {
       paymentMethod,
-      deliveryNote: deliveryNote || undefined,
+      deliveryNote: deliveryNote.trim() || undefined,
     };
-    if (selectedAddress) payload.addressId = selectedAddress;
-    else payload.deliveryAddress = manualAddress;
 
-    const result = await dispatch(placeOrder(payload));
+    if (useCustomAddress) {
+      orderData.deliveryAddress = customAddress.trim();
+    } else {
+      orderData.addressId = selectedAddressId;
+    }
+
+    console.log("📦 Placing order:", orderData);
+
+    // Place order
+    const result = await dispatch(placeOrder(orderData));
 
     if (placeOrder.fulfilled.match(result)) {
-      const order = result.payload as any;
+      const order = result.payload;
+
       Alert.alert(
-        "Order Placed! ✅",
-        `Order #${order.orderId} confirmed!\nTotal: ₹${order.finalAmount}`,
+        "Order Placed Successfully! 🎉",
+        `Order ID: ${order.orderId}\nTotal: ₹${order.totalAmount.toFixed(2)}`,
         [
           {
             text: "View Orders",
@@ -111,14 +97,40 @@ export default function Checkout() {
           },
         ],
       );
-    } else {
-      Alert.alert("Error ❌", result.payload as string);
+    } else if (placeOrder.rejected.match(result)) {
+      Alert.alert(
+        "Order Failed",
+        (result.payload as string) || "Something went wrong",
+      );
     }
   };
 
-  const finalAmount = cart
-    ? cart.totalAmount + (cart.totalAmount >= 500 ? 0 : 40)
-    : 0;
+  if (!cart || cart.items.length === 0) {
+    return (
+      <View style={s.container}>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>Checkout</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={s.emptyContainer}>
+          <Ionicons name="cart-outline" size={60} color="#334155" />
+          <Text style={s.emptyText}>Your cart is empty</Text>
+          <TouchableOpacity
+            style={s.shopBtn}
+            onPress={() => router.push("/(tabs)/Home")}
+          >
+            <Text style={s.shopBtnText}>Continue Shopping</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const deliveryFee = cart.totalAmount >= 500 ? 0 : 40;
+  const totalAmount = cart.totalAmount + deliveryFee;
 
   return (
     <View style={s.container}>
@@ -127,222 +139,206 @@ export default function Checkout() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
-        <Text style={s.title}>Checkout</Text>
+        <Text style={s.headerTitle}>Checkout</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
-        {/* Delivery Address */}
-        <Text style={s.sectionTitle}>📍 Delivery Address</Text>
-
-        {addrLoading ? (
-          <ActivityIndicator color="#10b981" />
-        ) : addresses.length === 0 ? (
-          <View style={s.noAddressBox}>
-            <Text style={s.noAddressText}>No saved addresses</Text>
-            <TextInput
-              style={[s.input, s.textArea]}
-              placeholder="Enter delivery address..."
-              placeholderTextColor="#475569"
-              value={manualAddress}
-              onChangeText={setManualAddress}
-              multiline
-            />
-          </View>
-        ) : (
-          addresses.map((addr) => (
-            <TouchableOpacity
-              key={addr.addressId}
-              style={[
-                s.addressCard,
-                selectedAddress === addr.addressId && s.addressCardActive,
-              ]}
-              onPress={() => setSelectedAddress(addr.addressId)}
-            >
-              <View style={s.addressLeft}>
-                <Ionicons
-                  name={
-                    selectedAddress === addr.addressId
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={20}
-                  color={
-                    selectedAddress === addr.addressId ? "#10b981" : "#475569"
-                  }
-                />
-              </View>
-              <View style={s.addressInfo}>
-                <Text style={s.addressName}>{addr.fullName}</Text>
-                <Text style={s.addressText}>
-                  {addr.addressLine1}
-                  {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}
-                </Text>
-                <Text style={s.addressText}>
-                  {addr.city}, {addr.state} - {addr.pincode}
-                </Text>
-                {addr.isDefault && (
-                  <View style={s.defaultBadge}>
-                    <Text style={s.defaultBadgeText}>Default</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-
-        {/* Add New Address */}
-        <TouchableOpacity
-          style={s.addAddrBtn}
-          onPress={() => setShowAddAddress(!showAddAddress)}
-        >
-          <Ionicons name="add-circle-outline" size={18} color="#6366f1" />
-          <Text style={s.addAddrText}>Add New Address</Text>
-        </TouchableOpacity>
-
-        {showAddAddress && (
-          <View style={s.newAddrForm}>
-            {[
-              {
-                key: "fullName",
-                label: "Full Name *",
-                placeholder: "John Doe",
-              },
-              { key: "phoneNumber", label: "Phone", placeholder: "9876543210" },
-              {
-                key: "addressLine1",
-                label: "Address Line 1 *",
-                placeholder: "House/Flat No, Street",
-              },
-              {
-                key: "addressLine2",
-                label: "Address Line 2",
-                placeholder: "Area, Landmark",
-              },
-              { key: "city", label: "City *", placeholder: "Mumbai" },
-              { key: "state", label: "State *", placeholder: "Maharashtra" },
-              { key: "pincode", label: "Pincode *", placeholder: "400001" },
-            ].map((field) => (
-              <View key={field.key}>
-                <Text style={s.label}>{field.label}</Text>
-                <TextInput
-                  style={s.input}
-                  placeholder={field.placeholder}
-                  placeholderTextColor="#475569"
-                  value={(newAddr as any)[field.key]}
-                  onChangeText={(v) =>
-                    setNewAddr((p) => ({ ...p, [field.key]: v }))
-                  }
-                  keyboardType={
-                    field.key === "pincode" || field.key === "phoneNumber"
-                      ? "number-pad"
-                      : "default"
-                  }
-                />
-              </View>
-            ))}
-            <TouchableOpacity style={s.saveAddrBtn} onPress={handleSaveAddress}>
-              <Text style={s.saveAddrText}>Save Address</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Delivery Note */}
-        <Text style={s.sectionTitle}>📝 Delivery Note (Optional)</Text>
-        <TextInput
-          style={[s.input, s.textArea]}
-          placeholder="Any special instructions..."
-          placeholderTextColor="#475569"
-          value={deliveryNote}
-          onChangeText={setDeliveryNote}
-          multiline
-        />
-
-        {/* Payment Method */}
-        <Text style={s.sectionTitle}>💳 Payment Method</Text>
-        {PAYMENT_METHODS.map((method) => (
-          <TouchableOpacity
-            key={method.key}
-            style={[
-              s.paymentCard,
-              paymentMethod === method.key && s.paymentCardActive,
-            ]}
-            onPress={() => setPaymentMethod(method.key)}
-          >
-            <Ionicons
-              name={method.icon as any}
-              size={22}
-              color={paymentMethod === method.key ? "#10b981" : "#475569"}
-            />
-            <Text
-              style={[
-                s.paymentLabel,
-                paymentMethod === method.key && s.paymentLabelActive,
-              ]}
-            >
-              {method.label}
-            </Text>
-            <Ionicons
-              name={
-                paymentMethod === method.key
-                  ? "radio-button-on"
-                  : "radio-button-off"
-              }
-              size={20}
-              color={paymentMethod === method.key ? "#10b981" : "#475569"}
-              style={{ marginLeft: "auto" }}
-            />
-          </TouchableOpacity>
-        ))}
-
-        {paymentMethod === "UPI" && (
-          <TextInput
-            style={s.input}
-            placeholder="Enter UPI ID (e.g. name@upi)"
-            placeholderTextColor="#475569"
-            value={upiId}
-            onChangeText={setUpiId}
-          />
-        )}
-
         {/* Order Summary */}
-        <Text style={s.sectionTitle}>🧾 Order Summary</Text>
-        <View style={s.summaryCard}>
-          {cart?.items.map((item) => (
-            <View key={item.cartItemId} style={s.summaryItem}>
-              <Text style={s.summaryItemName} numberOfLines={1}>
-                {item.productName} × {item.quantity}
-              </Text>
-              <Text style={s.summaryItemPrice}>
-                ₹{item.subtotal.toFixed(2)}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>📦 Order Summary</Text>
+          <View style={s.card}>
+            <View style={s.summaryRow}>
+              <Text style={s.summaryLabel}>{cart.totalItems} Items</Text>
+              <Text style={s.summaryValue}>₹{cart.totalAmount.toFixed(2)}</Text>
+            </View>
+            <View style={s.summaryRow}>
+              <Text style={s.summaryLabel}>Delivery</Text>
+              <Text
+                style={[
+                  s.summaryValue,
+                  deliveryFee === 0 && { color: "#10b981" },
+                ]}
+              >
+                {deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
               </Text>
             </View>
-          ))}
-          <View style={s.divider} />
-          <View style={s.summaryRow}>
-            <Text style={s.summaryLabel}>Subtotal</Text>
-            <Text style={s.summaryValue}>₹{cart?.totalAmount.toFixed(2)}</Text>
-          </View>
-          <View style={s.summaryRow}>
-            <Text style={s.summaryLabel}>Delivery</Text>
-            <Text style={[s.summaryValue, { color: "#10b981" }]}>
-              {(cart?.totalAmount || 0) >= 500 ? "FREE" : "₹40.00"}
-            </Text>
-          </View>
-          <View style={s.divider} />
-          <View style={s.summaryRow}>
-            <Text style={s.totalLabel}>Total</Text>
-            <Text style={s.totalValue}>₹{finalAmount.toFixed(2)}</Text>
+            <View style={s.divider} />
+            <View style={s.summaryRow}>
+              <Text style={s.totalLabel}>Total</Text>
+              <Text style={s.totalValue}>₹{totalAmount.toFixed(2)}</Text>
+            </View>
           </View>
         </View>
+
+        {/* Delivery Address */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>📍 Delivery Address</Text>
+
+          {/* Toggle Custom Address */}
+          <TouchableOpacity
+            style={s.toggleBtn}
+            onPress={() => setUseCustomAddress(!useCustomAddress)}
+          >
+            <Ionicons
+              name={useCustomAddress ? "checkbox" : "square-outline"}
+              size={20}
+              color="#10b981"
+            />
+            <Text style={s.toggleText}>Enter custom address</Text>
+          </TouchableOpacity>
+
+          {useCustomAddress ? (
+            <View style={s.card}>
+              <TextInput
+                style={s.textArea}
+                placeholder="Enter your delivery address..."
+                placeholderTextColor="#475569"
+                value={customAddress}
+                onChangeText={setCustomAddress}
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          ) : (
+            <>
+              {addressLoading ? (
+                <ActivityIndicator
+                  color="#10b981"
+                  style={{ marginVertical: 20 }}
+                />
+              ) : addresses.length === 0 ? (
+                <View style={s.card}>
+                  <Text style={s.noAddressText}>No saved addresses</Text>
+                  <TouchableOpacity
+                    style={s.addAddressBtn}
+                    onPress={() => setUseCustomAddress(true)}
+                  >
+                    <Text style={s.addAddressText}>Add Address</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                addresses.map((address) => (
+                  <TouchableOpacity
+                    key={address.addressId}
+                    style={[
+                      s.addressCard,
+                      selectedAddressId === address.addressId &&
+                        s.addressCardSelected,
+                    ]}
+                    onPress={() => setSelectedAddressId(address.addressId)}
+                  >
+                    <View style={s.addressHeader}>
+                      <Ionicons
+                        name={
+                          selectedAddressId === address.addressId
+                            ? "radio-button-on"
+                            : "radio-button-off"
+                        }
+                        size={20}
+                        color={
+                          selectedAddressId === address.addressId
+                            ? "#10b981"
+                            : "#475569"
+                        }
+                      />
+                      <Text style={s.addressLabel}>
+                        {address.label || "Home"}
+                        {address.isDefault && (
+                          <Text style={s.defaultBadge}> • Default</Text>
+                        )}
+                      </Text>
+                    </View>
+                    <Text style={s.addressText}>
+                      {address.addressLine1}
+                      {address.addressLine2 && `, ${address.addressLine2}`}
+                      {"\n"}
+                      {address.city}, {address.state} {address.postalCode}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Delivery Note */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>📝 Delivery Note (Optional)</Text>
+          <View style={s.card}>
+            <TextInput
+              style={s.input}
+              placeholder="Add instructions for delivery..."
+              placeholderTextColor="#475569"
+              value={deliveryNote}
+              onChangeText={setDeliveryNote}
+            />
+          </View>
+        </View>
+
+        {/* Payment Method */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>💳 Payment Method</Text>
+
+          <TouchableOpacity
+            style={[
+              s.paymentCard,
+              paymentMethod === "COD" && s.paymentCardSelected,
+            ]}
+            onPress={() => setPaymentMethod("COD")}
+          >
+            <View style={s.paymentHeader}>
+              <Ionicons
+                name={
+                  paymentMethod === "COD"
+                    ? "radio-button-on"
+                    : "radio-button-off"
+                }
+                size={20}
+                color={paymentMethod === "COD" ? "#10b981" : "#475569"}
+              />
+              <Ionicons name="cash-outline" size={24} color="#10b981" />
+              <Text style={s.paymentText}>Cash on Delivery</Text>
+            </View>
+            <Text style={s.paymentDesc}>Pay when you receive</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              s.paymentCard,
+              paymentMethod === "ONLINE" && s.paymentCardSelected,
+            ]}
+            onPress={() => setPaymentMethod("ONLINE")}
+          >
+            <View style={s.paymentHeader}>
+              <Ionicons
+                name={
+                  paymentMethod === "ONLINE"
+                    ? "radio-button-on"
+                    : "radio-button-off"
+                }
+                size={20}
+                color={paymentMethod === "ONLINE" ? "#10b981" : "#475569"}
+              />
+              <Ionicons name="card-outline" size={24} color="#10b981" />
+              <Text style={s.paymentText}>Online Payment</Text>
+            </View>
+            <Text style={s.paymentDesc}>UPI, Cards, Wallet</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Place Order Button */}
-      <View style={s.bottomBox}>
+      <View style={s.footer}>
+        <View style={s.footerInfo}>
+          <Text style={s.footerLabel}>Total Amount</Text>
+          <Text style={s.footerTotal}>₹{totalAmount.toFixed(2)}</Text>
+        </View>
         <TouchableOpacity
           style={[s.placeOrderBtn, orderLoading && { opacity: 0.6 }]}
           onPress={handlePlaceOrder}
@@ -352,14 +348,8 @@ export default function Checkout() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Text style={s.placeOrderText}>
-                Place Order — ₹{finalAmount.toFixed(2)}
-              </Text>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={22}
-                color="#fff"
-              />
+              <Text style={s.placeOrderText}>Place Order</Text>
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
             </>
           )}
         </TouchableOpacity>
@@ -369,151 +359,173 @@ export default function Checkout() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a", paddingTop: 50 },
+  container: { flex: 1, backgroundColor: "#0f172a" },
   header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e293b",
   },
-  title: { fontSize: 20, fontWeight: "700", color: "#f1f5f9" },
-  content: { padding: 16, paddingBottom: 120 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#f1f5f9" },
+  content: { padding: 16, paddingBottom: 20 },
+  section: { marginBottom: 24 },
   sectionTitle: {
-    color: "#94a3b8",
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 10,
-    marginTop: 20,
-  },
-  addressCard: {
-    flexDirection: "row",
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#334155",
-    gap: 12,
-  },
-  addressCardActive: { borderColor: "#10b981", backgroundColor: "#0d2e22" },
-  addressLeft: { paddingTop: 2 },
-  addressInfo: { flex: 1 },
-  addressName: {
     color: "#f1f5f9",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  addressText: { color: "#94a3b8", fontSize: 12, marginBottom: 2 },
-  defaultBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#064e3b",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  defaultBadgeText: { color: "#10b981", fontSize: 10, fontWeight: "700" },
-  addAddrBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-  },
-  addAddrText: { color: "#6366f1", fontWeight: "600", fontSize: 14 },
-  newAddrForm: {
-    backgroundColor: "#1e293b",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  label: {
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 5,
-    textTransform: "uppercase",
-  },
-  input: {
-    backgroundColor: "#0f172a",
-    borderRadius: 10,
-    padding: 12,
-    color: "#f1f5f9",
-    fontSize: 14,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#334155",
   },
-  textArea: { height: 70, textAlignVertical: "top" },
-  saveAddrBtn: {
-    backgroundColor: "#6366f1",
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-  },
-  saveAddrText: { color: "#fff", fontWeight: "700" },
-  noAddressBox: { marginBottom: 8 },
-  noAddressText: { color: "#475569", fontSize: 13, marginBottom: 8 },
-  paymentCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  card: {
     backgroundColor: "#1e293b",
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  paymentCardActive: { borderColor: "#10b981", backgroundColor: "#0d2e22" },
-  paymentLabel: { color: "#94a3b8", fontSize: 14, fontWeight: "600" },
-  paymentLabelActive: { color: "#f1f5f9" },
-  summaryCard: {
-    backgroundColor: "#1e293b",
-    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: "#334155",
   },
-  summaryItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  summaryItemName: { color: "#94a3b8", fontSize: 12, flex: 1 },
-  summaryItemPrice: { color: "#f1f5f9", fontSize: 12, fontWeight: "600" },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  summaryLabel: { color: "#94a3b8", fontSize: 13 },
-  summaryValue: { color: "#f1f5f9", fontSize: 13, fontWeight: "600" },
-  divider: { height: 1, backgroundColor: "#334155", marginVertical: 8 },
-  totalLabel: { color: "#f1f5f9", fontSize: 15, fontWeight: "700" },
+  summaryLabel: { color: "#94a3b8", fontSize: 14 },
+  summaryValue: { color: "#f1f5f9", fontSize: 14, fontWeight: "600" },
+  divider: {
+    height: 1,
+    backgroundColor: "#334155",
+    marginVertical: 8,
+  },
+  totalLabel: { color: "#f1f5f9", fontSize: 16, fontWeight: "700" },
   totalValue: { color: "#10b981", fontSize: 16, fontWeight: "800" },
-  bottomBox: {
+  toggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  toggleText: { color: "#94a3b8", fontSize: 14 },
+  textArea: {
+    color: "#f1f5f9",
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  input: {
+    color: "#f1f5f9",
+    fontSize: 14,
+  },
+  noAddressText: {
+    color: "#94a3b8",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  addAddressBtn: {
+    backgroundColor: "#10b981",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  addAddressText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  addressCard: {
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: "#334155",
+  },
+  addressCardSelected: {
+    borderColor: "#10b981",
+  },
+  addressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  addressLabel: {
+    color: "#f1f5f9",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  defaultBadge: { color: "#10b981", fontSize: 12 },
+  addressText: {
+    color: "#94a3b8",
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: 28,
+  },
+  paymentCard: {
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: "#334155",
+  },
+  paymentCardSelected: {
+    borderColor: "#10b981",
+  },
+  paymentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 4,
+  },
+  paymentText: {
+    color: "#f1f5f9",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  paymentDesc: {
+    color: "#94a3b8",
+    fontSize: 13,
+    marginLeft: 44,
+  },
+  footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
     backgroundColor: "#0f172a",
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#1e293b",
   },
+  footerInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  footerLabel: { color: "#94a3b8", fontSize: 14 },
+  footerTotal: { color: "#10b981", fontSize: 18, fontWeight: "800" },
   placeOrderBtn: {
     backgroundColor: "#10b981",
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    gap: 8,
   },
-  placeOrderText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  placeOrderText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  emptyText: { color: "#94a3b8", fontSize: 16 },
+  shopBtn: {
+    backgroundColor: "#10b981",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  shopBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

@@ -60,13 +60,16 @@ export default function Explore() {
         <Text style={s.emptySubtitle}>Add some products to get started</Text>
         <TouchableOpacity
           style={s.shopBtn}
-          onPress={() => router.push("/Home")}
+          onPress={() => router.push("/(tabs)" as any)}
         >
           <Text style={s.shopBtnText}>Shop Now</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
+  const deliveryCharge = cart.totalAmount >= 500 ? 0 : 40;
+  const finalAmount = cart.totalAmount + deliveryCharge;
 
   return (
     <View style={s.container}>
@@ -97,31 +100,46 @@ export default function Explore() {
               </Text>
               <Text style={s.itemUnit}>per {item.productUnit}</Text>
               <Text style={s.itemPrice}>₹{item.priceAtTime}</Text>
+              <Text style={s.itemSubtotal}>
+                Subtotal: ₹{item.subtotal.toFixed(2)}
+              </Text>
             </View>
 
-            <View style={s.qtyControls}>
-              <TouchableOpacity
-                style={s.qtyBtn}
-                onPress={() =>
-                  item.quantity > 1
-                    ? handleUpdate(item.cartItemId, item.quantity - 1)
-                    : handleRemove(item.cartItemId, item.productName)
-                }
-              >
-                <Ionicons
-                  name={item.quantity === 1 ? "trash-outline" : "remove"}
-                  size={16}
-                  color={item.quantity === 1 ? "#ef4444" : "#f1f5f9"}
-                />
-              </TouchableOpacity>
+            <View style={s.rightCol}>
+              {/* Qty Controls */}
+              <View style={s.qtyControls}>
+                <TouchableOpacity
+                  style={s.qtyBtn}
+                  onPress={() =>
+                    item.quantity > 1
+                      ? handleUpdate(item.cartItemId, item.quantity - 1)
+                      : handleRemove(item.cartItemId, item.productName)
+                  }
+                >
+                  <Ionicons
+                    name={item.quantity === 1 ? "trash-outline" : "remove"}
+                    size={15}
+                    color={item.quantity === 1 ? "#ef4444" : "#f1f5f9"}
+                  />
+                </TouchableOpacity>
+                <Text style={s.qtyText}>{item.quantity}</Text>
+                <TouchableOpacity
+                  style={s.qtyBtn}
+                  onPress={() =>
+                    handleUpdate(item.cartItemId, item.quantity + 1)
+                  }
+                >
+                  <Ionicons name="add" size={15} color="#f1f5f9" />
+                </TouchableOpacity>
+              </View>
 
-              <Text style={s.qtyText}>{item.quantity}</Text>
-
+              {/* Buy Now - single item */}
               <TouchableOpacity
-                style={s.qtyBtn}
-                onPress={() => handleUpdate(item.cartItemId, item.quantity + 1)}
+                style={s.buyNowBtn}
+                onPress={() => router.push("/checkout" as any)}
               >
-                <Ionicons name="add" size={16} color="#f1f5f9" />
+                <Ionicons name="flash-outline" size={12} color="#0f172a" />
+                <Text style={s.buyNowText}>Buy Now</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -129,46 +147,63 @@ export default function Explore() {
 
         {/* Price Summary */}
         <View style={s.summaryCard}>
-          <Text style={s.summaryTitle}>Price Summary</Text>
+          <Text style={s.summaryTitle}>💰 Price Summary</Text>
+          {cart.items.map((item) => (
+            <View key={item.cartItemId} style={s.summaryItemRow}>
+              <Text style={s.summaryItemName} numberOfLines={1}>
+                {item.productName} × {item.quantity}
+              </Text>
+              <Text style={s.summaryItemPrice}>
+                ₹{item.subtotal.toFixed(2)}
+              </Text>
+            </View>
+          ))}
+          <View style={s.divider} />
           <View style={s.summaryRow}>
             <Text style={s.summaryLabel}>Subtotal</Text>
             <Text style={s.summaryValue}>₹{cart.totalAmount.toFixed(2)}</Text>
           </View>
           <View style={s.summaryRow}>
-            <Text style={s.summaryLabel}>Delivery</Text>
+            <Text style={s.summaryLabel}>Delivery Charge</Text>
             <Text style={[s.summaryValue, { color: "#10b981" }]}>
-              {cart.totalAmount >= 500 ? "FREE" : "₹40.00"}
+              {deliveryCharge === 0 ? "FREE 🎉" : `₹${deliveryCharge}`}
             </Text>
           </View>
           <View style={s.divider} />
           <View style={s.summaryRow}>
-            <Text style={s.totalLabel}>Total</Text>
-            <Text style={s.totalValue}>
-              ₹
-              {(cart.totalAmount + (cart.totalAmount >= 500 ? 0 : 40)).toFixed(
-                2,
-              )}
-            </Text>
+            <Text style={s.totalLabel}>Total Payable</Text>
+            <Text style={s.totalValue}>₹{finalAmount.toFixed(2)}</Text>
           </View>
           {cart.totalAmount < 500 && (
-            <Text style={s.freeDeliveryHint}>
-              ₹{(500 - cart.totalAmount).toFixed(0)} more for FREE delivery!
-            </Text>
+            <View style={s.freeHintBox}>
+              <Ionicons
+                name="information-circle-outline"
+                size={14}
+                color="#f59e0b"
+              />
+              <Text style={s.freeDeliveryHint}>
+                ₹{(500 - cart.totalAmount).toFixed(0)} more for FREE delivery!
+              </Text>
+            </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Checkout Button */}
-      <View style={s.checkoutBox}>
+      {/* Bottom Buttons */}
+      <View style={s.bottomBox}>
         <TouchableOpacity
           style={s.checkoutBtn}
           onPress={() => router.push("/checkout" as any)}
         >
-          <Text style={s.checkoutText}>
-            Proceed to Checkout — ₹
-            {(cart.totalAmount + (cart.totalAmount >= 500 ? 0 : 40)).toFixed(2)}
-          </Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
+          <View>
+            <Text style={s.checkoutText}>Proceed to Checkout</Text>
+            <Text style={s.checkoutAmount}>₹{finalAmount.toFixed(2)}</Text>
+          </View>
+          <Ionicons
+            name="arrow-forward-circle-outline"
+            size={28}
+            color="#fff"
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -193,7 +228,7 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: "700", color: "#f1f5f9" },
   itemCount: { color: "#94a3b8", fontSize: 13 },
-  content: { padding: 16, paddingBottom: 120 },
+  content: { padding: 16, paddingBottom: 130 },
   cartItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -203,9 +238,9 @@ const s = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "#334155",
-    gap: 12,
+    gap: 10,
   },
-  itemImage: { width: 60, height: 60, borderRadius: 10 },
+  itemImage: { width: 65, height: 65, borderRadius: 10 },
   imagePlaceholder: {
     backgroundColor: "#0f172a",
     alignItems: "center",
@@ -218,31 +253,43 @@ const s = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 2,
   },
-  itemUnit: { color: "#475569", fontSize: 11, marginBottom: 4 },
-  itemPrice: { color: "#10b981", fontSize: 14, fontWeight: "700" },
+  itemUnit: { color: "#475569", fontSize: 11, marginBottom: 3 },
+  itemPrice: { color: "#10b981", fontSize: 13, fontWeight: "700" },
+  itemSubtotal: { color: "#94a3b8", fontSize: 11, marginTop: 2 },
+  rightCol: { alignItems: "center", gap: 8 },
   qtyControls: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#0f172a",
     borderRadius: 10,
-    padding: 4,
-    gap: 8,
+    padding: 3,
+    gap: 6,
   },
   qtyBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 7,
     backgroundColor: "#1e293b",
     alignItems: "center",
     justifyContent: "center",
   },
   qtyText: {
     color: "#f1f5f9",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
-    minWidth: 20,
+    minWidth: 18,
     textAlign: "center",
   },
+  buyNowBtn: {
+    backgroundColor: "#f59e0b",
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  buyNowText: { color: "#0f172a", fontWeight: "700", fontSize: 11 },
   summaryCard: {
     backgroundColor: "#1e293b",
     borderRadius: 16,
@@ -257,23 +304,31 @@ const s = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 12,
   },
+  summaryItemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  summaryItemName: { color: "#94a3b8", fontSize: 12, flex: 1 },
+  summaryItemPrice: { color: "#f1f5f9", fontSize: 12, fontWeight: "600" },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   summaryLabel: { color: "#94a3b8", fontSize: 13 },
   summaryValue: { color: "#f1f5f9", fontSize: 13, fontWeight: "600" },
-  divider: { height: 1, backgroundColor: "#334155", marginVertical: 8 },
+  divider: { height: 1, backgroundColor: "#334155", marginVertical: 10 },
   totalLabel: { color: "#f1f5f9", fontSize: 15, fontWeight: "700" },
-  totalValue: { color: "#10b981", fontSize: 16, fontWeight: "800" },
-  freeDeliveryHint: {
-    color: "#f59e0b",
-    fontSize: 12,
+  totalValue: { color: "#10b981", fontSize: 17, fontWeight: "800" },
+  freeHintBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     marginTop: 8,
-    textAlign: "center",
   },
-  checkoutBox: {
+  freeDeliveryHint: { color: "#f59e0b", fontSize: 12 },
+  bottomBox: {
     position: "absolute",
     bottom: 0,
     left: 0,
@@ -292,6 +347,11 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   checkoutText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  checkoutAmount: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 13,
+    marginTop: 2,
+  },
   emptyTitle: { color: "#f1f5f9", fontSize: 20, fontWeight: "700" },
   emptySubtitle: { color: "#94a3b8", fontSize: 13 },
   shopBtn: {
